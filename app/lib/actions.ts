@@ -1,5 +1,7 @@
 'use server';
 
+import { signIn } from '@/auth';
+import { AuthError } from 'next-auth';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -30,6 +32,25 @@ export type State = {
     message?: string | null;
 };
 
+export async function authenticate(
+    prevState: string | undefined,
+    formData: FormData,
+) {
+    try {
+        await signIn('credentials', formData);
+    } catch (error) {
+        if (error instanceof AuthError) {
+            switch (error.type) {
+                case 'CredentialsSignin':
+                    return 'Invalid credentials.';
+                default:
+                    return 'Something went wrong.';
+            }
+        }
+        throw error;
+    }
+}
+
 const CreateInvoice = FormSchema.omit({id: true, date: true});
 
 export async function createInvoice(prevState: State, formData: FormData) {
@@ -49,7 +70,7 @@ export async function createInvoice(prevState: State, formData: FormData) {
     }
 
     // Prepare data for insertion into the database
-    const { customerId, amount, status } = validatedFields.data;
+    const {customerId, amount, status} = validatedFields.data;
     const amountInCents = amount * 100;
     const date = new Date().toISOString().split('T')[0];
 
@@ -90,7 +111,7 @@ export async function updateInvoice(id: string, prevState: State, formData: Form
     }
 
     // Prepare data for insertion into the database
-    const { customerId, amount, status } = validatedFields.data;
+    const {customerId, amount, status} = validatedFields.data;
     const amountInCents = amount * 100;
 
     try {
